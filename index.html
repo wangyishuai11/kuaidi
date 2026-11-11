@@ -45,12 +45,25 @@
             <div class="result-section" id="resultSection">
                 <div id="resultContent"></div>
             </div>
-            <div class="tip">💡 输入完整信息可获得更准确的结果</div>
+            <div class="tip">💡 请输入完整的姓名或手机号进行精确查询</div>
         </div>
     </div>
     <script src="data.js"></script>
     <script>
 (function(){
+    function normalize(str){
+        if(!str)return "";
+        str=String(str);
+        // 去除所有空格（包括全角空格）
+        str=str.replace(/[\s　]/g,"");
+        // 全角转半角
+        str=str.replace(/[！-～]/g,function(c){
+            return String.fromCharCode(c.charCodeAt(0)-0xfee0)
+        });
+        // 统一转小写（针对英文字符）
+        str=str.toLowerCase();
+        return str
+    }
     function search(){
         var input=document.getElementById("searchInput");
         if(!input)return;
@@ -58,12 +71,17 @@
         if(k)k=k.replace(/^\s+|\s+$/g,"");
         if(!k){showStatus("请输入姓名或手机号","error");return}
         if(!window.EXPRESS_DATA){showStatus("数据加载失败","error");return}
+        // 规范化搜索关键词
+        var normalizedKey=normalize(k);
         var results=[];
         for(var i=0;i<window.EXPRESS_DATA.length;i++){
             var item=window.EXPRESS_DATA[i];
             var name=item["收货名"]||item["收货人"]||item["姓名"]||"";
             var phone=item["收货手机号"]||item["手机号"]||"";
-            if(String(name).indexOf(k)>=0||String(phone).indexOf(k)>=0){
+            // 精确匹配：规范化后完全相等
+            var normalizedName=normalize(name);
+            var normalizedPhone=normalize(phone);
+            if(normalizedName===normalizedKey||normalizedPhone===normalizedKey){
                 results.push(item)
             }
         }
