@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>快递查询</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 15px; }
+        .container { max-width: 500px; margin: 20px auto; background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px 20px; text-align: center; border-radius: 15px 15px 0 0; }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .content { padding: 25px 20px; }
+        .search-box { margin-bottom: 20px; }
+        .search-box input { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; margin-bottom: 12px; }
+        .search-box button { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; }
+        .result-section { display: none; margin-top: 20px; }
+        .result-card { padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #667eea; margin-bottom: 15px; }
+        .result-card h3 { color: #333; margin-bottom: 15px; text-align: center; }
+        .result-item { padding: 12px 0; border-bottom: 1px solid #e0e0e0; }
+        .result-item:last-child { border-bottom: none; }
+        .result-label { color: #666; font-size: 13px; margin-bottom: 5px; }
+        .result-value { color: #333; font-size: 15px; word-break: break-all; }
+        .tracking-number { color: #667eea; font-weight: bold; font-size: 18px; }
+        .copy-btn { padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 13px; margin-left: 10px; }
+        .no-result { padding: 40px 20px; text-align: center; color: #999; }
+        .status { padding: 12px; margin-bottom: 15px; border-radius: 8px; text-align: center; display: none; }
+        .status.success { background: #d4edda; color: #155724; display: block; }
+        .status.error { background: #f8d7da; color: #721c24; display: block; }
+        .tip { text-align: center; color: #999; font-size: 13px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 快递查询</h1>
+            <p>输入姓名或手机号查询</p>
+        </div>
+        <div class="content">
+            <div id="status" class="status"></div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="请输入收货人姓名或手机号">
+                <button type="button" id="searchBtn">🔍 查询</button>
+            </div>
+            <div class="result-section" id="resultSection">
+                <div id="resultContent"></div>
+            </div>
+            <div class="tip">💡 输入完整信息可获得更准确的结果</div>
+        </div>
+    </div>
+    <script src="data.js"></script>
+    <script>
+(function(){
+    function search(){
+        var input=document.getElementById("searchInput");
+        if(!input)return;
+        var k=input.value;
+        if(k)k=k.replace(/^\s+|\s+$/g,"");
+        if(!k){showStatus("请输入姓名或手机号","error");return}
+        if(!window.EXPRESS_DATA){showStatus("数据加载失败","error");return}
+        var results=[];
+        for(var i=0;i<window.EXPRESS_DATA.length;i++){
+            var item=window.EXPRESS_DATA[i];
+            var name=item["收货名"]||item["收货人"]||item["姓名"]||"";
+            var phone=item["收货手机号"]||item["手机号"]||"";
+            if(String(name).indexOf(k)>=0||String(phone).indexOf(k)>=0){
+                results.push(item)
+            }
+        }
+        displayResults(results)
+    }
+    function displayResults(results){
+        var sec=document.getElementById("resultSection");
+        var con=document.getElementById("resultContent");
+        if(!sec||!con)return;
+        if(results.length===0){
+            con.innerHTML='<div class="no-result">😔 未找到匹配信息<br><br>请检查输入是否正确</div>';
+            sec.style.display="block";
+            return
+        }
+        var html="";
+        for(var i=0;i<results.length;i++){
+            var item=results[i];
+            html+='<div class="result-card"><h3>✅ 快递信息</h3>';
+            var fields=["收货人","收货名","姓名","收货手机号","手机号","详细的收货地址","收货地址","地址","快递单号","单号","备注"];
+            var shown=[];
+            for(var j=0;j<fields.length;j++){
+                var prefer=fields[j];
+                for(var key in item){
+                    if(shown.indexOf(key)<0&&(key===prefer||key.indexOf(prefer)>=0)){
+                        var val=item[key]||"-";
+                        var isTracking=key.indexOf("单号")>=0;
+                        html+='<div class="result-item"><div class="result-label">'+key+'</div>';
+                        if(isTracking){
+                            html+='<div class="result-value tracking-number">'+val;
+                            if(val!=="-")html+='<button type="button" class="copy-btn" onclick="copyText(\''+val+'\')">复制</button>';
+                            html+='</div>';
+                        }else{
+                            html+='<div class="result-value">'+val+'</div>';
+                        }
+                        html+='</div>';
+                        shown.push(key)
+                    }
+                }
+            }
+            html+='</div>'
+        }
+        con.innerHTML=html;
+        sec.style.display="block";
+        showStatus("找到"+results.length+"条信息","success")
+    }
+    window.copyText=function(text){
+        var ta=document.createElement("textarea");
+        ta.value=text;
+        ta.style.position="fixed";
+        ta.style.left="-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try{
+            document.execCommand("copy");
+            showStatus("✅ 已复制","success")
+        }catch(e){
+            showStatus("长按单号可复制","error")
+        }
+        document.body.removeChild(ta)
+    };
+    function showStatus(msg,type){
+        var s=document.getElementById("status");
+        if(!s)return;
+        s.textContent=msg;
+        s.className="status "+type;
+        s.style.display="block";
+        setTimeout(function(){s.style.display="none"},3000)
+    }
+    var btn=document.getElementById("searchBtn");
+    if(btn){
+        btn.onclick=function(){search()};
+        btn.ontouchend=function(e){e.preventDefault();search()}
+    }
+    var input=document.getElementById("searchInput");
+    if(input){
+        input.onkeypress=function(e){
+            var code=e.keyCode||e.which;
+            if(code===13){e.preventDefault();search()}
+        }
+    }
+})()
+    </script>
+</body>
+</html>
